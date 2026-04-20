@@ -452,13 +452,13 @@ function Game(){
         ))
       ),
       e('div',{style:{background:'#0d1a0d',border:'1px solid #2a5a2a',borderRadius:8,padding:'12px 14px',marginBottom:8}},
-        e('div',{style:{color:'#6abf6a',fontSize:12,fontWeight:'bold',marginBottom:6}},'📌 O que memorizar agora:'),
-        e('div',{style:{color:'#90c890',fontSize:12,lineHeight:1.8}},
-          e('div',null,'🧙 ',e('strong',null,'Bruxa?'),' Você joga contra os aldeões. Não revele.'),
-          e('div',null,'🛡 ',e('strong',null,'Vigilante?'),' Na Noite, você salva alguém.'),
-          e('div',null,'🃏 ',e('strong',null,'Suas cartas na mão:'),' no seu turno, toque em qualquer carta para jogá-la em alguém.'),
-          e('div',null,'⭐ ',e('strong',null,'Sua habilidade:'),' leia acima e lembre — ela aparece no seu turno.'),
-          e('div',{style:{marginTop:4,color:'#6a9a6a'}},'Feche e passe para o próximo. Não fale o que viu.')
+        e('div',{style:{color:'#6abf6a',fontSize:12,fontWeight:'bold',marginBottom:6}},'📌 Memorize:'),
+        e('div',{style:{fontSize:13,lineHeight:1.9}},
+          wj.length>0&&e('div',{style:{color:'#ff9999',fontWeight:'bold'}},'🧙 Você é BRUXA'),
+          vj.length>0&&e('div',{style:{color:'#aaddff',fontWeight:'bold'}},'🛡 Você é o VIGILANTE'),
+          !wj.length&&!vj.length&&e('div',{style:{color:'#90c890'}},'👤 Você é ALDEÃO'),
+          e('div',{style:{color:'#c9a227',marginTop:4}},'⭐ Sua habilidade: ',e('span',{style:{color:'#e8d5b0',fontWeight:'normal'}},p.char.ability)),
+          e('div',{style:{color:'#4a7a4a',fontSize:12,marginTop:6}},'Feche e passe para o próximo.')
         )
       ),
       e('button',{className:'btn btn-gold',onClick:()=>{
