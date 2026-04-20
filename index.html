@@ -39,7 +39,7 @@ label{display:block;color:#8a6a40;font-size:12px;margin-bottom:3px;}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script>
-const {useState,useRef}=React;
+const {useState,useRef,useEffect}=React;
 
 const SETUP={4:{n:18,w:1,v:1,cpp:5},5:{n:23,w:1,v:1,cpp:5},6:{n:27,w:2,v:1,cpp:5},7:{n:32,w:2,v:1,cpp:5},8:{n:29,w:2,v:1,cpp:4},9:{n:33,w:2,v:1,cpp:4},10:{n:27,w:2,v:1,cpp:3},11:{n:30,w:2,v:1,cpp:3},12:{n:33,w:2,v:1,cpp:3}};
 
@@ -63,6 +63,10 @@ const CHARS=[
 
 function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]];}return b;}
 
+const SAVE_KEY='salem1692';
+function getSaved(){try{return JSON.parse(localStorage.getItem(SAVE_KEY));}catch{return null;}}
+const _sv=getSaved();
+
 function makeDeck(){
   const mk=(t,col,name,eff,n,x={})=>Array(n).fill(0).map((_,i)=>({id:`${t}${i}`,type:t,col,name,effect:eff,...x}));
   return shuf([
@@ -85,33 +89,37 @@ const NIGHT_CARD={id:'ngt0',type:'ngt',col:'black',name:'Noite',effect:'Fase Not
 function cc(col){return col==='red'?'c-red':col==='green'?'c-green':col==='blue'?'c-blue':'c-black';}
 
 function Game(){
-  const [phase,setPhase]=useState('instructions');
-  const [np,setNp]=useState(4);
-  const [pnames,setPnames]=useState(Array(4).fill('').map((_,i)=>`Jogador ${i+1}`));
-  const [players,setPlayers]=useState([]);
-  const [deck,setDeck]=useState([]);
-  const [discard,setDiscard]=useState([]);
-  const [curIdx,setCurIdx]=useState(0);
-  const [pvIdx,setPvIdx]=useState(0);
-  const [pvStep,setPvStep]=useState('cover');
-  const [dawnStep,setDawnStep]=useState('intro');
-  const [catTarget,setCatTarget]=useState(null);
-  const [turnStep,setTurnStep]=useState('cover');
-  const [actStep,setActStep]=useState('choose');
-  const [playingCard,setPlayingCard]=useState(null);
-  const [tgtIdx,setTgtIdx]=useState(null);
-  const [drawn,setDrawn]=useState([]);
-  const [pendBlack,setPendBlack]=useState(null);
-  const [nightStep,setNightStep]=useState('intro');
-  const [nightVote,setNightVote]=useState(null);
-  const [vigSave,setVigSave]=useState(null);
-  const [confessing,setConfessing]=useState([]);
-  const [nightRes,setNightRes]=useState(null);
-  const [winner,setWinner]=useState(null);
-  const [log,setLog]=useState([]);
-  const [gameOver,setGameOver]=useState(false);
-  const deckRef=useRef([]);
-  const discRef=useRef([]);
+  const [phase,setPhase]=useState(_sv?.phase||'instructions');
+  const [np,setNp]=useState(_sv?.np||4);
+  const [pnames,setPnames]=useState(_sv?.pnames||Array(4).fill('').map((_,i)=>`Jogador ${i+1}`));
+  const [players,setPlayers]=useState(_sv?.players||[]);
+  const [deck,setDeck]=useState(_sv?.deck||[]);
+  const [discard,setDiscard]=useState(_sv?.discard||[]);
+  const [curIdx,setCurIdx]=useState(_sv?.curIdx||0);
+  const [pvIdx,setPvIdx]=useState(_sv?.pvIdx||0);
+  const [pvStep,setPvStep]=useState(_sv?.pvStep||'cover');
+  const [dawnStep,setDawnStep]=useState(_sv?.dawnStep||'intro');
+  const [catTarget,setCatTarget]=useState(_sv?.catTarget??null);
+  const [turnStep,setTurnStep]=useState(_sv?.turnStep||'cover');
+  const [actStep,setActStep]=useState(_sv?.actStep||'choose');
+  const [playingCard,setPlayingCard]=useState(_sv?.playingCard??null);
+  const [tgtIdx,setTgtIdx]=useState(_sv?.tgtIdx??null);
+  const [drawn,setDrawn]=useState(_sv?.drawn||[]);
+  const [pendBlack,setPendBlack]=useState(_sv?.pendBlack??null);
+  const [nightStep,setNightStep]=useState(_sv?.nightStep||'intro');
+  const [nightVote,setNightVote]=useState(_sv?.nightVote??null);
+  const [vigSave,setVigSave]=useState(_sv?.vigSave??null);
+  const [confessing,setConfessing]=useState(_sv?.confessing||[]);
+  const [nightRes,setNightRes]=useState(_sv?.nightRes??null);
+  const [winner,setWinner]=useState(_sv?.winner??null);
+  const [log,setLog]=useState(_sv?.log||[]);
+  const [gameOver,setGameOver]=useState(_sv?.gameOver||false);
+  const deckRef=useRef(_sv?.deck||[]);
+  const discRef=useRef(_sv?.discard||[]);
+  useEffect(()=>{
+    if(phase==='instructions'||phase==='setup'){localStorage.removeItem(SAVE_KEY);return;}
+    localStorage.setItem(SAVE_KEY,JSON.stringify({phase,np,pnames,players,deck,discard,curIdx,pvIdx,pvStep,dawnStep,catTarget,turnStep,actStep,playingCard,tgtIdx,drawn,pendBlack,nightStep,nightVote,vigSave,confessing,nightRes,winner,log,gameOver}));
+  });
 
   function addLog(m){setLog(l=>[m,...l].slice(0,15));}
   function accNeeded(p){return p.char.id==='george'?8:7;}
@@ -332,7 +340,7 @@ function Game(){
                         p.isWitch?e('span',{style:{background:'#5a0505',color:'#fcc',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:'bold',marginLeft:4}},'Bruxa'):'')
         ))
       ),
-      e('button',{className:'btn btn-gold',style:{marginTop:16},onClick:()=>{setGameOver(false);setWinner(null);setPhase('instructions');setPlayers([]);}},'Nova Partida')
+      e('button',{className:'btn btn-gold',style:{marginTop:16},onClick:()=>{localStorage.removeItem(SAVE_KEY);setGameOver(false);setWinner(null);setPhase('instructions');setPlayers([]);}},'Nova Partida')
     ));
   }
 
