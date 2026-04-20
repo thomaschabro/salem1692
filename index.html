@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Salem 1692</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0506;font-family:Georgia,serif;color:#e8d5b0;min-height:100vh;}
+#root{min-height:100vh;}
+.game{background:#12090a;min-height:100vh;}
+.screen{max-width:440px;margin:0 auto;padding:16px;min-height:100vh;display:flex;flex-direction:column;}
+.cover{background:#0a0507;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;}
+h1{font-size:26px;color:#c9a227;letter-spacing:3px;margin-bottom:4px;}
+h2{font-size:18px;color:#c9a227;margin-bottom:12px;text-align:center;}
+.card{background:#1e0e0a;border:1px solid #4a2a14;border-radius:8px;padding:12px;margin-bottom:8px;}
+.btn{display:block;width:100%;padding:12px 16px;border-radius:8px;border:none;cursor:pointer;font-size:15px;font-family:Georgia,serif;margin-bottom:8px;font-weight:bold;color:#12090a;transition:opacity .15s;}
+.btn:active{opacity:.8;}
+.btn-gold{background:#c9a227;}
+.btn-red{background:#8b1c1c;color:#fdd;}
+.btn-dark{background:#2d1810;color:#c9a227;border:1px solid #4a2a14;}
+.btn-sm{padding:8px 12px;font-size:13px;margin-bottom:6px;}
+.btn:disabled{opacity:.4;cursor:default;}
+.c-red{background:#4a0505;border:1px solid #7a1515;border-radius:6px;padding:8px 10px;margin:3px 0;color:#ffcccc;}
+.c-green{background:#08260a;border:1px solid #1a4a1a;border-radius:6px;padding:8px 10px;margin:3px 0;color:#ccffcc;}
+.c-blue{background:#050820;border:1px solid #152050;border-radius:6px;padding:8px 10px;margin:3px 0;color:#ccdaff;}
+.c-black{background:#0a0808;border:1px solid #4a4010;border-radius:6px;padding:8px 10px;margin:3px 0;color:#ffee99;}
+.row{display:flex;gap:8px;}
+.row .btn{flex:1;}
+.muted{color:#7a5a30;font-size:13px;}
+.flash{color:#ff9999;font-size:13px;}
+.log-item{font-size:12px;color:#7a5a30;padding:3px 0;border-bottom:1px solid #2a1a0a;}
+input,select{width:100%;padding:10px;background:#0f0805;color:#e8d5b0;border:1px solid #4a2a14;border-radius:6px;font-size:15px;font-family:Georgia,serif;margin-bottom:8px;}
+label{display:block;color:#8a6a40;font-size:12px;margin-bottom:3px;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script>
+const {useState,useRef}=React;
+
+const SETUP={4:{n:18,w:1,v:1,cpp:5},5:{n:23,w:1,v:1,cpp:5},6:{n:27,w:2,v:1,cpp:5},7:{n:32,w:2,v:1,cpp:5},8:{n:29,w:2,v:1,cpp:4},9:{n:33,w:2,v:1,cpp:4},10:{n:27,w:2,v:1,cpp:3},11:{n:30,w:2,v:1,cpp:3},12:{n:33,w:2,v:1,cpp:3}};
+
+const CHARS=[
+  {id:"abigail",name:"Abigail Williams",role:"Criança (11)",ability:"Ao colocar a última Acusação em alguém → descarte todas as Acusações em você."},
+  {id:"ann",name:"Ann Putnam",role:"Estudante (13)",ability:"Ao colocar a última Acusação em alguém → compre 2 cartas extras."},
+  {id:"cotton",name:"Cotton Mather",role:"Ministro (29)",ability:"[AUTO] Evidências contra você valem apenas 1 Acusação (não 3)."},
+  {id:"george",name:"George Burroughs",role:"O mais forte (40)",ability:"[AUTO] Precisa de 8 Acusações (não 7) para revelar um Julgamento."},
+  {id:"giles",name:"Giles Corey",role:"Proprietário (71)",ability:"Se comprar 2 Acusações num turno → mostre-as e compre uma 3ª carta."},
+  {id:"john",name:"John Proctor",role:"Fazendeiro (60)",ability:"[AUTO] Quando alguém morrer → pegue as cartas azuis e mão do morto."},
+  {id:"martha",name:"Martha Corey",role:"Costureira (72)",ability:"Você copia a habilidade do jogador à sua direita."},
+  {id:"mary",name:"Mary Warren",role:"Criada (17)",ability:"[AUTO] Imune às cartas de Casamenteiro e Gato Preto."},
+  {id:"rebecca",name:"Rebecca Nurse",role:"Dona de casa (71)",ability:"[AUTO] Toda vez que um Julgamento for revelado → compre 1 carta."},
+  {id:"samuel",name:"Samuel Parris",role:"Pastor (39)",ability:"2× por jogo: compre 2 cartas do descarte (declare antes de comprar)."},
+  {id:"sarah",name:"Sarah Good",role:"Pedinte (39)",ability:"[AUTO] Incêndio Criminoso e Roubo não funcionam contra você."},
+  {id:"thomas",name:"Thomas Danforth",role:"Juiz (69)",ability:"[AUTO] Com 6ª ou 7ª Acusação → já pode revelar um Julgamento."},
+  {id:"tituba",name:"Tituba",role:"Contadora (35)",ability:"1× por jogo: reorganize o baralho livremente (tempo de 2 ampulhetas)."},
+  {id:"will",name:"Will Griggs",role:"Médico (47)",ability:"Pode usar Álibis como Testemunha (valem 7 Acusações)."},
+  {id:"william",name:"William Phips",role:"Governador (42)",ability:"1× por jogo: confesse sem revelar Julgamento."},
+];
+
+function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=0|Math.random()*(i+1);[b[i],b[j]]=[b[j],b[i]];}return b;}
+
+function makeDeck(){
+  const mk=(t,col,name,eff,n,x={})=>Array(n).fill(0).map((_,i)=>({id:`${t}${i}`,type:t,col,name,effect:eff,...x}));
+  return shuf([
+    ...mk('acc','red','Acusação','Adiciona 1 Acusação ao alvo.',19,{val:1}),
+    ...mk('evi','red','Evidência','Adiciona 3 Acusações ao alvo.',3,{val:3}),
+    ...mk('ali','green','Álibi','Remova 1, 2 ou 3 Acusações do alvo.',10),
+    ...mk('ars','green','Incêndio Criminoso','O alvo descarta toda a mão.',3),
+    ...mk('cur','green','Maldição','Descarte 1 carta azul da frente do alvo.',4),
+    ...mk('rob','green','Roubo','Mova toda a mão de um jogador para outro.',3),
+    ...mk('sca','green','Bode Expiatório','Mova cartas vermelhas+azuis de um jogador para outro.',3),
+    ...mk('sto','green','Pelourinho','O alvo perde o próximo turno.',4),
+    ...mk('asy','blue','Asilo','O alvo não pode ser morto esta Noite.',3),
+    ...mk('mat','blue','Casamenteiro','Se 2 jogadores tiverem, quando um morrer, o outro também.',3),
+    ...mk('pie','blue','Devoção','O alvo não pode receber cartas vermelhas.',3),
+    {id:'con0',type:'con',col:'black',name:'Conspiração',effect:'Todos pegam 1 Julgamento do jogador à esquerda. Resolva imediatamente.'},
+  ]);
+}
+const NIGHT_CARD={id:'ngt0',type:'ngt',col:'black',name:'Noite',effect:'Fase Noturna! Resolva imediatamente.'};
+
+function cc(col){return col==='red'?'c-red':col==='green'?'c-green':col==='blue'?'c-blue':'c-black';}
+
+function Game(){
+  const [phase,setPhase]=useState('instructions');
+  const [np,setNp]=useState(4);
+  const [pnames,setPnames]=useState(Array(4).fill('').map((_,i)=>`Jogador ${i+1}`));
+  const [players,setPlayers]=useState([]);
+  const [deck,setDeck]=useState([]);
+  const [discard,setDiscard]=useState([]);
+  const [curIdx,setCurIdx]=useState(0);
+  const [pvIdx,setPvIdx]=useState(0);
+  const [pvStep,setPvStep]=useState('cover');
+  const [dawnStep,setDawnStep]=useState('intro');
+  const [catTarget,setCatTarget]=useState(null);
+  const [turnStep,setTurnStep]=useState('cover');
+  const [actStep,setActStep]=useState('choose');
+  const [playingCard,setPlayingCard]=useState(null);
+  const [tgtIdx,setTgtIdx]=useState(null);
+  const [drawn,setDrawn]=useState([]);
+  const [pendBlack,setPendBlack]=useState(null);
+  const [nightStep,setNightStep]=useState('intro');
+  const [nightVote,setNightVote]=useState(null);
+  const [vigSave,setVigSave]=useState(null);
+  const [confessing,setConfessing]=useState([]);
+  const [nightRes,setNightRes]=useState(null);
+  const [winner,setWinner]=useState(null);
+  const [log,setLog]=useState([]);
+  const [gameOver,setGameOver]=useState(false);
+  const deckRef=useRef([]);
+  const discRef=useRef([]);
+
+  function addLog(m){setLog(l=>[m,...l].slice(0,15));}
+  function accNeeded(p){return p.char.id==='george'?8:7;}
+
+  function drawN(n,fromDisc=false){
+    let d=[...deckRef.current],di=[...discRef.current],out=[];
+    for(let i=0;i<n;i++){
+      if(fromDisc){if(!di.length)break;out.push(di.shift());}
+      else{
+        if(!d.length){d=shuf(di.filter(c=>c.type!=='ngt'));d.push(NIGHT_CARD);di=[];}
+        if(!d.length)break;
+        out.push(d.shift());
+      }
+    }
+    deckRef.current=d;discRef.current=di;
+    setDeck([...d]);setDiscard([...di]);
+    return out;
+  }
+
+  function checkWin(ps){
+    const alive=ps.filter(p=>!p.isDead);
+    if(alive.length>0&&alive.every(p=>p.isWitch))return'witches';
+    if(ps.every(p=>p.judgments.filter(j=>j.jt==='w').every(j=>j.rev)))return'town';
+    return null;
+  }
+
+  function startGame(){
+    const s=SETUP[np];
+    const jdeck=shuf([
+      ...Array(s.n).fill(0).map((_,i)=>({id:`jn${i}`,jt:'n',label:'NÃO É UMA BRUXA'})),
+      ...Array(s.w).fill(0).map((_,i)=>({id:`jw${i}`,jt:'w',label:'BRUXA'})),
+      {id:'jv0',jt:'v',label:'VIGILANTE'},
+    ]);
+    const chars=shuf([...CHARS]).slice(0,np);
+    const salemDeck=[...makeDeck(),NIGHT_CARD];
+    deckRef.current=salemDeck;discRef.current=[];
+    const ps=pnames.slice(0,np).map((name,i)=>{
+      const js=jdeck.slice(i*s.cpp,(i+1)*s.cpp).map(j=>({...j,rev:false}));
+      return{id:i,name,char:chars[i],judgments:js,hand:drawN(3),blue:[],acc:0,isDead:false,
+             isWitch:js.some(j=>j.jt==='w'),isVig:js.some(j=>j.jt==='v'),
+             hasBlackCat:false,skipTurn:false,specUsed:{}};
+    });
+    setPlayers(ps);setDeck([...deckRef.current]);setDiscard([]);
+    setLog([]);setPvIdx(0);setPvStep('cover');setPhase('pv');
+  }
+
+  function revealJudgment(ps,idx){
+    const p={...ps[idx]};
+    const unrevealed=p.judgments.filter(j=>!j.rev);
+    if(!unrevealed.length)return{ps,revealed:null,died:false};
+    const j=unrevealed[0];
+    p.judgments=p.judgments.map(jj=>jj.id===j.id?{...jj,rev:true}:jj);
+    if(j.jt==='w'&&p.judgments.every(jj=>jj.rev))p.isDead=true;
+    p.acc=0;
+    const np2=[...ps];np2[idx]=p;
+    addLog(`${p.name} revelou: ${j.label}`);
+    const w=checkWin(np2);if(w){setWinner(w);setGameOver(true);}
+    np2.forEach((pl,pi)=>{
+      if(!pl.isDead&&pl.char.id==='rebecca'&&pi!==idx){
+        const extra=drawN(1);
+        np2[pi]={...np2[pi],hand:[...np2[pi].hand,...extra]};
+      }
+    });
+    return{ps:np2,revealed:j,died:p.isDead};
+  }
+
+  function applyCard(card,handIdx,tgt,tgt2=null,param=null){
+    let ps=[...players];
+    const me={...ps[curIdx]};
+    me.hand=me.hand.filter((_,i)=>i!==handIdx);
+    ps[curIdx]=me;
+    const target={...ps[tgt]};
+    const disc=[...discRef.current];
+
+    switch(card.type){
+      case'acc':case'evi':{
+        const hasPiety=target.blue.some(c=>c.type==='pie');
+        if(hasPiety){addLog(`${target.name} tem Devoção — imune!`);disc.push(card);break;}
+        const eff=(card.type==='evi'&&target.char.id==='cotton')?1:(card.val||1);
+        const needed=accNeeded(target);
+        const thomas=me.char.id==='thomas';
+        target.acc+=eff;
+        const thresholdMet=thomas?(target.acc>=6):target.acc>=needed;
+        if(thresholdMet&&target.judgments.some(j=>!j.rev)){
+          ps[tgt]=target;
+          const r=revealJudgment(ps,tgt);
+          ps=r.ps;
+          ps[curIdx]={...ps[curIdx],hand:me.hand};
+          if(me.char.id==='abigail'){ps[curIdx]={...ps[curIdx],acc:0};addLog('Abigail: suas acusações foram descartadas!');}
+          if(me.char.id==='ann'){const extra=drawN(2);ps[curIdx]={...ps[curIdx],hand:[...ps[curIdx].hand,...extra.filter(c=>c.col!=='black')]};addLog('Ann: comprou 2 cartas!');}
+        }else{ps[tgt]=target;}
+        disc.push(card);
+        break;
+      }
+      case'ali':{
+        target.acc=Math.max(0,target.acc-(param||1));
+        ps[tgt]=target;disc.push(card);
+        addLog(`Álibi: removeu ${param||1} acusação(ões) de ${target.name}`);
+        break;
+      }
+      case'ars':{
+        if(target.char.id==='sarah'){addLog('Sarah Good: imune ao Incêndio!');disc.push(card);}
+        else{disc.push(card,...target.hand);target.hand=[];ps[tgt]=target;addLog(`${target.name} perdeu toda a mão!`);}
+        break;
+      }
+      case'cur':{
+        if(param!==null&&target.blue[param]){
+          disc.push(card,target.blue[param]);
+          target.blue=target.blue.filter((_,i)=>i!==param);
+          ps[tgt]=target;addLog(`Maldição: carta azul descartada de ${target.name}`);
+        }else disc.push(card);
+        break;
+      }
+      case'rob':{
+        if(target.char.id==='sarah'){addLog('Sarah Good: imune ao Roubo!');disc.push(card);}
+        else{const dest={...ps[tgt2]};dest.hand=[...dest.hand,...target.hand];target.hand=[];ps[tgt]=target;ps[tgt2]=dest;disc.push(card);addLog(`Mão de ${target.name} → ${dest.name}`);}
+        break;
+      }
+      case'sca':{
+        const dest={...ps[tgt2]};
+        dest.blue=[...dest.blue,...target.blue];dest.acc+=target.acc;
+        target.blue=[];target.acc=0;ps[tgt]=target;ps[tgt2]=dest;disc.push(card);
+        addLog(`Bode Expiatório: cartas de ${target.name} → ${dest.name}`);
+        break;
+      }
+      case'sto':{target.skipTurn=true;ps[tgt]=target;disc.push(card);addLog(`${target.name} vai para o Pelourinho!`);break;}
+      case'asy':{target.blue=[...target.blue,card];ps[tgt]=target;addLog(`${target.name} tem Asilo!`);break;}
+      case'mat':{
+        if(target.char.id==='mary'){addLog('Mary Warren: imune ao Casamenteiro!');disc.push(card);}
+        else{target.blue=[...target.blue,card];ps[tgt]=target;addLog(`${target.name} tem Casamenteiro!`);}
+        break;
+      }
+      case'pie':{target.blue=[...target.blue,card];ps[tgt]=target;addLog(`${target.name} tem Devoção!`);break;}
+      default:disc.push(card);
+    }
+
+    discRef.current=disc;setDiscard([...disc]);
+    setPlayers(ps);setTurnStep('action');setActStep('choose');setPlayingCard(null);setTgtIdx(null);
+    if(!gameOver){const w=checkWin(ps);if(w){setWinner(w);setGameOver(true);}}
+  }
+
+  function nextAlive(from,ps){
+    const p=ps||players;
+    let idx=from%p.length,c=0;
+    while(p[idx]&&p[idx].isDead&&c<p.length){idx=(idx+1)%p.length;c++;}
+    return idx;
+  }
+
+  function endTurn(ps){
+    const p=ps||players;
+    const nx=nextAlive((curIdx+1)%p.length,p);
+    setCurIdx(nx);setTurnStep('cover');setPlayingCard(null);setTgtIdx(null);setDrawn([]);setPendBlack(null);setActStep('choose');
+  }
+
+  function resolveNight(){
+    if(nightVote===null){setNightRes({killed:null,reason:'Bruxas não escolheram alvo'});setNightStep('result');return;}
+    const target=players[nightVote];
+    const saved=vigSave===nightVote;
+    const hasAsylum=target.blue.some(c=>c.type==='asy');
+    const isConfessing=confessing.includes(nightVote);
+    let ps=[...players];
+
+    if(saved||hasAsylum||isConfessing){
+      if(isConfessing){const r=revealJudgment(ps,nightVote);ps=r.ps;addLog(`${target.name} confessou: ${r.revealed?.label||'?'}`);}
+      if(hasAsylum){ps[nightVote]={...ps[nightVote],blue:ps[nightVote].blue.filter(c=>c.type!=='asy')};}
+      setPlayers(ps);
+      setNightRes({killed:null,survived:target.name,reason:saved?'Vigilante salvou!':hasAsylum?'Asilo!':'Confissão!'});
+    }else{
+      let p={...ps[nightVote]};
+      p.isDead=true;
+      const deadBlue=[...p.blue];const deadHand=[...p.hand];
+      discRef.current=[...discRef.current,...deadBlue,...deadHand];
+      p.judgments=p.judgments.map(j=>({...j,rev:true}));
+      p.blue=[];p.hand=[];ps[nightVote]=p;
+      addLog(`${p.name} morreu!`);
+      const johnIdx=ps.findIndex((pl,i)=>pl.char.id==='john'&&!pl.isDead&&i!==nightVote);
+      if(johnIdx>=0){ps[johnIdx]={...ps[johnIdx],hand:[...ps[johnIdx].hand,...deadHand],blue:[...ps[johnIdx].blue,...deadBlue]};addLog('John Proctor herdou as cartas!');}
+      const hadMat=deadBlue.some(c=>c.type==='mat');
+      if(hadMat){const mIdx=ps.findIndex((pl,i)=>i!==nightVote&&!pl.isDead&&pl.blue.some(c=>c.type==='mat'));if(mIdx>=0){ps[mIdx]={...ps[mIdx],isDead:true};addLog(`${ps[mIdx].name} também morreu (Casamenteiro)!`);}}
+      setDiscard([...discRef.current]);setPlayers(ps);
+      const w=checkWin(ps);if(w){setWinner(w);setGameOver(true);}
+      setNightRes({killed:p.name,reason:''});
+    }
+    setNightStep('result');
+  }
+
+  function handleConspiracy(ps){
+    const n=ps.length;
+    const transfers=ps.map((p,i)=>{
+      const li=(i-1+n)%n;const src=ps[li];
+      const avail=src.judgments.filter(j=>!j.rev);
+      if(!avail.length)return null;
+      return{to:i,from:li,card:avail[0|Math.random()*avail.length]};
+    }).filter(Boolean);
+    let np2=[...ps];
+    transfers.forEach(t=>{
+      np2[t.from]={...np2[t.from],judgments:np2[t.from].judgments.filter(j=>j.id!==t.card.id)};
+      np2[t.to]={...np2[t.to],judgments:[...np2[t.to].judgments,t.card],
+                 isWitch:np2[t.to].isWitch||t.card.jt==='w',
+                 isVig:np2[t.to].judgments.some(j=>j.jt==='v')||t.card.jt==='v'};
+    });
+    addLog('Conspiração! Cartas de Julgamento trocadas.');
+    return np2;
+  }
+
+  const e=React.createElement;
+
+  // GAME OVER
+  if(gameOver){
+    const tw=winner==='town';
+    return e('div',{className:'game'},e('div',{className:'screen',style:{justifyContent:'center',textAlign:'center'}},
+      e('div',{style:{fontSize:56,marginBottom:8}},tw?'⛪':'🧙'),
+      e('h1',null,tw?'PURITANOS VENCEM!':'BRUXAS VENCEM!'),
+      e('div',{className:'card',style:{marginTop:16,textAlign:'left'}},
+        players.map((p,i)=>e('div',{key:i,style:{padding:'6px 0',borderBottom:'1px solid #2d1a10',display:'flex',justifyContent:'space-between'}},
+          e('span',null,p.name,' ',e('span',{className:'muted'},p.char.name)),
+          e('span',null,p.isDead?e('span',{style:{background:'#4a0505',color:'#faa',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:'bold'}},'Morto'):'',
+                        p.isWitch?e('span',{style:{background:'#5a0505',color:'#fcc',padding:'2px 8px',borderRadius:12,fontSize:11,fontWeight:'bold',marginLeft:4}},'Bruxa'):'')
+        ))
+      ),
+      e('button',{className:'btn btn-gold',style:{marginTop:16},onClick:()=>{setGameOver(false);setWinner(null);setPhase('instructions');setPlayers([]);}},'Nova Partida')
+    ));
+  }
+
+  // INSTRUCTIONS
+  if(phase==='instructions') return e('div',{className:'game'},e('div',{className:'screen'},
+    e('div',{style:{textAlign:'center',padding:'20px 0 12px'}},
+      e('div',{style:{fontSize:40,marginBottom:4}},'🌙'),
+      e('h1',null,'SALEM 1692'),
+      e('p',{className:'muted',style:{marginBottom:16}},'Guia rápido para jogar')
+    ),
+    e('div',{className:'card',style:{marginBottom:8}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'🎯 Objetivo'),
+      e('div',{style:{fontSize:13,lineHeight:1.7,color:'#e8d5b0'}},
+        e('span',{style:{color:'#ffaaaa'}},'Bruxas vencem'),': eliminar todos os não-Bruxas.',e('br'),
+        e('span',{style:{color:'#aaffaa'}},'Aldeões vencem'),': revelar todas as Cartas de Bruxa do jogo.'
+      )
+    ),
+    e('div',{className:'card',style:{marginBottom:8}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'🃏 Cores das cartas'),
+      e('div',{className:'c-red',style:{marginBottom:4,fontSize:13}},e('strong',null,'Vermelhas'),' — Acusam alguém. 7 acusações revelam 1 Julgamento.'),
+      e('div',{className:'c-green',style:{marginBottom:4,fontSize:13}},e('strong',null,'Verdes'),' — Efeito imediato, depois descartadas.'),
+      e('div',{className:'c-blue',style:{marginBottom:4,fontSize:13}},e('strong',null,'Azuis'),' — Ficam na frente do jogador até serem removidas.'),
+      e('div',{className:'c-black',style:{fontSize:13}},e('strong',null,'Pretas'),' — Conspiração ou Noite: resolva imediatamente.')
+    ),
+    e('div',{className:'card',style:{marginBottom:8}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'⚔️ No seu turno (escolha uma):'),
+      e('div',{style:{fontSize:13,lineHeight:1.8,color:'#e8d5b0'}},
+        '1. ',e('strong',null,'Comprar 2 cartas'),' do baralho.',e('br'),
+        '2. ',e('strong',null,'Jogar cartas da mão'),' em qualquer jogador (toque na carta).',e('br'),
+        e('span',{className:'muted'},'Se comprar carta Preta → resolva na hora.')
+      )
+    ),
+    e('div',{className:'card',style:{marginBottom:8}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'🧙 Papéis secretos'),
+      e('div',{style:{fontSize:13,lineHeight:1.8,color:'#e8d5b0'}},
+        e('span',{style:{color:'#ffaaaa'}},'Bruxa'),': você sabe quem são as outras Bruxas. À Noite, vocês votam em quem matar.',e('br'),
+        e('span',{style:{color:'#aaddff'}},'Vigilante'),': à Noite, você escolhe 1 jogador para salvar.',e('br'),
+        e('span',{style:{color:'#aaffaa'}},'Aldeão'),': use as cartas para acusar quem acha que é Bruxa.'
+      )
+    ),
+    e('div',{className:'card',style:{marginBottom:8}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'💀 Como um jogador morre'),
+      e('div',{style:{fontSize:13,lineHeight:1.8,color:'#e8d5b0'}},
+        '• Todas as suas Cartas de Julgamento foram reveladas.',e('br'),
+        '• Uma Carta de Bruxa foi revelada entre as suas.',e('br'),
+        '• As Bruxas o mataram durante a Noite.',e('br'),
+        e('span',{className:'muted'},'Ao morrer: revele todos os Julgamentos e diga se foi Bruxa.')
+      )
+    ),
+    e('div',{className:'card',style:{marginBottom:16}},
+      e('div',{style:{color:'#c9a227',fontSize:13,fontWeight:'bold',marginBottom:8}},'👥 Número de Bruxas'),
+      e('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,textAlign:'center',fontSize:12}},
+        e('div',{style:{color:'#8a6a40'}},'Jogadores'),e('div',{style:{color:'#8a6a40'}},'Bruxas'),e('div',{style:{color:'#8a6a40'}},'Vigilante'),
+        e('div',null,'4 – 5'),e('div',{style:{color:'#ffaaaa'}},'1'),e('div',{style:{color:'#aaddff'}},'1'),
+        e('div',null,'6 – 12'),e('div',{style:{color:'#ffaaaa'}},'2'),e('div',{style:{color:'#aaddff'}},'1')
+      )
+    ),
+    e('button',{className:'btn btn-gold',onClick:()=>setPhase('setup')},'Entendi — Configurar Partida ⚔️')
+  ));
+
+  // SETUP
+  if(phase==='setup') return e('div',{className:'game'},e('div',{className:'screen'},
+    e('div',{style:{textAlign:'center',padding:'24px 0 16px'}},
+      e('div',{style:{fontSize:42,marginBottom:4}},'🌙'),
+      e('h1',null,'SALEM 1692'),
+      e('p',{className:'muted'},'Simulador Digital')
+    ),
+    e('div',{className:'card'},
+      e('label',null,'Número de Jogadores'),
+      e('select',{value:np,onChange:ev=>{const n=+ev.target.value;setNp(n);setPnames(Array(n).fill(0).map((_,i)=>`Jogador ${i+1}`));}},
+        [4,5,6,7,8,9,10,11,12].map(n=>e('option',{key:n,value:n},`${n} jogadores`))
+      ),
+      pnames.slice(0,np).map((name,i)=>e('div',{key:i},
+        e('label',null,`Jogador ${i+1}`),
+        e('input',{value:name,onChange:ev=>{const n=[...pnames];n[i]=ev.target.value;setPnames(n);}})
+      ))
+    ),
+    e('button',{className:'btn btn-gold',onClick:startGame},'Iniciar Partida ⚔️')
+  ));
+
+  // PRIVATE VIEW
+  if(phase==='pv'){
+    const p=players[pvIdx];
+    if(pvStep==='cover') return e('div',{className:'game'},e('div',{className:'cover'},
+      e('div',{style:{fontSize:48}},'🙈'),
+      e('div',{style:{color:'#c9a227',fontSize:20}},'Passe para:',e('br'),e('strong',{style:{fontSize:28}},p?.name)),
+      e('p',{className:'muted'},'Não mostre para ninguém'),
+      e('button',{className:'btn btn-gold',style:{width:220},onClick:()=>setPvStep('reveal')},'Estou sozinho(a) 👁')
+    ));
+    const wj=p.judgments.filter(j=>j.jt==='w'),vj=p.judgments.filter(j=>j.jt==='v'),nj=p.judgments.filter(j=>j.jt==='n');
+    return e('div',{className:'game'},e('div',{className:'screen'},
+      e('h2',null,'🔒 ',p.name),
+      e('div',{className:'card',style:{borderColor:'#c9a227'}},
+        e('span',{className:'muted',style:{fontSize:11}},'PERSONAGEM'),
+        e('div',{style:{fontSize:18,fontWeight:'bold',marginTop:2}},p.char.name),
+        e('div',{className:'muted'},p.char.role),
+        e('div',{style:{marginTop:8,fontSize:13,lineHeight:1.5}},e('span',{style:{color:'#c9a227'}},'⭐ '),p.char.ability)
+      ),
+      e('div',{className:'card'},
+        e('span',{className:'muted',style:{fontSize:11}},`JULGAMENTOS (${p.judgments.length})`),
+        wj.length>0&&e('div',{className:'c-red',style:{fontWeight:'bold',marginTop:6}},`🧙 BRUXA × ${wj.length} — você é do time das Bruxas!`),
+        vj.length>0&&e('div',{className:'c-blue',style:{marginTop:4}},'🛡 VIGILANTE — proteja alguém na Noite'),
+        e('div',{className:'muted',style:{marginTop:4}},`✓ "Não é Bruxa" × ${nj.length}`)
+      ),
+      e('div',{className:'card'},
+        e('span',{className:'muted',style:{fontSize:11}},`MÃO INICIAL (${p.hand.length})`),
+        p.hand.map((c,i)=>e('div',{key:i,className:cc(c.col),style:{marginTop:4}},
+          e('span',{style:{fontWeight:'bold'}},c.name),' ',e('span',{className:'muted',style:{fontSize:11}},c.effect)
+        ))
+      ),
+      e('div',{style:{background:'#0d1a0d',border:'1px solid #2a5a2a',borderRadius:8,padding:'12px 14px',marginBottom:8}},
+        e('div',{style:{color:'#6abf6a',fontSize:12,fontWeight:'bold',marginBottom:6}},'📌 O que memorizar agora:'),
+        e('div',{style:{color:'#90c890',fontSize:12,lineHeight:1.8}},
+          e('div',null,'🧙 ',e('strong',null,'Bruxa?'),' Você joga contra os aldeões. Não revele.'),
+          e('div',null,'🛡 ',e('strong',null,'Vigilante?'),' Na Noite, você salva alguém.'),
+          e('div',null,'🃏 ',e('strong',null,'Suas cartas na mão:'),' no seu turno, toque em qualquer carta para jogá-la em alguém.'),
+          e('div',null,'⭐ ',e('strong',null,'Sua habilidade:'),' leia acima e lembre — ela aparece no seu turno.'),
+          e('div',{style:{marginTop:4,color:'#6a9a6a'}},'Feche e passe para o próximo. Não fale o que viu.')
+        )
+      ),
+      e('button',{className:'btn btn-gold',onClick:()=>{
+        const last=pvIdx===players.length-1;
+        if(last){setPvStep('cover');setDawnStep('intro');setPhase('dawn');}
+        else{setPvIdx(i=>i+1);setPvStep('cover');}
+      }},'Memorizar e fechar 🔒')
+    ));
+  }
+
+  // DAWN
+  if(phase==='dawn'){
+    if(dawnStep==='intro') return e('div',{className:'game'},e('div',{className:'screen',style:{justifyContent:'center',textAlign:'center'}},
+      e('div',{style:{fontSize:48,marginBottom:8}},'🌅'),e('h1',null,'AMANHECER'),
+      e('p',{style:{color:'#8a6a40',lineHeight:1.7,margin:'16px 0'}},'Todos fechem os olhos.',e('br'),'As Bruxas escolherão',e('br'),'quem recebe o Gato Preto.'),
+      e('div',{style:{background:'#1a1200',border:'1px solid #6a5000',borderRadius:8,padding:'12px 16px',margin:'8px 0',maxWidth:300,textAlign:'left'}},
+        e('div',{style:{color:'#f0c040',fontSize:13,fontWeight:'bold',marginBottom:4}},'⏱️ Dica prática:'),
+        e('div',{style:{color:'#c9a060',fontSize:13,lineHeight:1.6}},'Ponham um alarme de 1 minuto.',e('br'),'Todos fecham os olhos e deixam o celular no centro.',e('br'),'As Bruxas pegam o dispositivo juntas e escolhem o alvo.')
+      ),
+      e('button',{className:'btn btn-gold',style:{width:240,marginTop:8},onClick:()=>setDawnStep('pick')},'Todos fecharam os olhos ✓')
+    ));
+    if(dawnStep==='pick') return e('div',{className:'game'},e('div',{className:'cover'},
+      e('div',{style:{fontSize:36}},'🐈'),
+      e('div',{style:{color:'#c9a227',fontSize:17}},'Bruxas: abram os olhos'),
+      e('p',{className:'muted'},'Quem recebe o Gato Preto?'),
+      e('div',{style:{width:'100%',maxWidth:340}},
+        players.map((p,i)=>{const mary=p.char.id==='mary';return e('button',{key:i,className:`btn btn-sm ${catTarget===i?'btn-red':'btn-dark'}`,style:{opacity:mary?.5:1},onClick:()=>{if(!mary)setCatTarget(i);}},p.name,mary?' (imune)':'');})
+      ),
+      catTarget!==null&&e('button',{className:'btn btn-red',style:{width:240},onClick:()=>{
+        const up=players.map((p,i)=>({...p,hasBlackCat:i===catTarget}));
+        setPlayers(up);setDawnStep('reveal');
+      }},`Confirmar: ${players[catTarget]?.name} ✓`)
+    ));
+    if(dawnStep==='reveal'){
+      const cat=players.find(p=>p.hasBlackCat);
+      return e('div',{className:'game'},e('div',{className:'screen',style:{justifyContent:'center',textAlign:'center'}},
+        e('div',{style:{fontSize:48}},'🐈'),e('h1',null,'AMANHECER'),
+        e('p',{style:{color:'#c9a227',fontSize:18,margin:'12px 0'}},'Todos abram os olhos!'),
+        e('div',{className:'card'},e('div',{className:'c-red'},e('strong',null,cat?.name),' recebeu o Gato Preto.'),
+          e('p',{className:'muted',style:{marginTop:8,fontSize:12}},'Esta pessoa coloca o Gato Preto virado para cima na sua frente. Quem joga primeiro.')),
+        e('button',{className:'btn btn-gold',onClick:()=>{
+          const idx=players.findIndex(p=>p.hasBlackCat);
+          setCurIdx(idx>=0?idx:0);setTurnStep('cover');setPhase('turns');
+        }},'Iniciar Partida ⚔️')
+      ));
+    }
+  }
+
+  // TURNS
+  if(phase==='turns'){
+    const cp=players[curIdx];
+    if(!cp||cp.isDead){setTimeout(()=>setCurIdx(nextAlive((curIdx+1)%players.length)),0);return e('div',{className:'game'},e('div',{className:'cover'},e('p',{className:'muted'},'...')));}
+
+    if(turnStep==='cover') return e('div',{className:'game'},e('div',{className:'cover'},
+      e('div',{style:{fontSize:42}},'⚔️'),
+      e('div',{style:{color:'#c9a227',fontSize:19}},'Vez de:',e('br'),e('strong',{style:{fontSize:27}},cp.name)),
+      cp.skipTurn&&e('p',{className:'flash'},'⚠️ Pelourinho — você passa a vez!'),
+      e('button',{className:'btn btn-gold',style:{width:220,marginTop:8},onClick:()=>{
+        if(cp.skipTurn){const up=players.map((p,i)=>i===curIdx?{...p,skipTurn:false}:p);setPlayers(up);endTurn(up);}
+        else{setTurnStep('action');setActStep('choose');}
+      }},cp.skipTurn?'Passar Vez →':'Estou sozinho(a) 👁')
+    ));
+
+    if(turnStep==='drew') return e('div',{className:'game'},e('div',{className:'screen'},
+      e('h2',null,'Cartas Compradas'),
+      drawn.map((c,i)=>e('div',{key:i,className:cc(c.col),style:{marginBottom:6}},e('span',{style:{fontWeight:'bold'}},c.name),e('br'),e('span',{className:'muted',style:{fontSize:12}},c.effect))),
+      e('button',{className:'btn btn-gold',style:{marginTop:12},onClick:()=>{setTurnStep('action');setActStep('choose');}}, 'Continuar →')
+    ));
+
+    if(turnStep==='blackCard'){
+      const bc=pendBlack;
+      if(bc?.type==='ngt') return e('div',{className:'game'},e('div',{className:'screen',style:{justifyContent:'center',textAlign:'center'}},
+        e('div',{style:{fontSize:56}},'🌙'),e('h1',null,'CARTA DA NOITE!'),
+        e('div',{className:'c-black',style:{margin:'16px 0'}},'O baralho acabou. A Noite chega sobre Salem!'),
+        e('button',{className:'btn btn-red',onClick:()=>{setNightStep('intro');setNightVote(null);setVigSave(null);setConfessing([]);setPhase('night');}}, 'Iniciar Fase da Noite 🌙')
+      ));
+      if(bc?.type==='con'){
+        const newPs=handleConspiracy(players);
+        return e('div',{className:'game'},e('div',{className:'screen'},
+          e('div',{style:{textAlign:'center',marginBottom:12}},e('div',{style:{fontSize:40}},'🕯️'),e('h1',null,'CONSPIRAÇÃO!')),
+          e('div',{className:'c-black',style:{marginBottom:12}},e('strong',null,'Todos pegam 1 Julgamento do jogador à esquerda simultaneamente.'),e('div',{className:'muted',style:{marginTop:6,fontSize:12}},'Cada um escolhe (sem revelar) uma carta do jogador à esquerda e coloca junto aos próprios julgamentos.')),
+          e('div',{className:'card'},newPs.map((p,i)=>{const li=(i-1+newPs.length)%newPs.length;return e('div',{key:i,className:'muted',style:{padding:'3px 0'}},`→ ${p.name} pegou de ${newPs[li].name}`);})),
+          e('div',{style:{background:'#1a0a00',border:'1px solid #7a3010',borderRadius:8,padding:'12px 14px',margin:'8px 0',fontSize:13,lineHeight:1.8}},
+            e('div',{style:{color:'#ff9955',fontWeight:'bold',marginBottom:6}},'⚠️ Após a troca — verifique em segredo:'),
+            e('div',{style:{color:'#e8c090'}},
+              e('div',null,'🧙 ',e('strong',null,'Recebeu uma carta de Bruxa?'),' → Você agora é uma Bruxa. Junte-se ao time.'),
+              e('div',null,'📤 ',e('strong',null,'Perdeu sua carta de Bruxa?'),' → Você ',e('em',null,'ainda'),' é uma Bruxa. Quem já foi Bruxa, sempre será.'),
+              e('div',null,'🛡 ',e('strong',null,'Recebeu o Vigilante?'),' → Você agora é o Vigilante e age na Noite.'),
+              e('div',null,'📤 ',e('strong',null,'Perdeu o Vigilante?'),' → Você não age mais na Noite.'),
+            ),
+            e('div',{style:{color:'#7a5030',fontSize:12,marginTop:8,borderTop:'1px solid #4a2010',paddingTop:8}},'Cada jogador olha suas novas cartas em segredo antes de continuar.')
+          ),
+          e('button',{className:'btn btn-gold',onClick:()=>{setPlayers(newPs);setPendBlack(null);setTurnStep('action');setActStep('choose');}},'Conspiração Resolvida ✓')
+        ));
+      }
+    }
+
+    if(turnStep==='action'){
+      const p=players[curIdx];
+
+      if(actStep==='choose') return e('div',{className:'game'},e('div',{className:'screen'},
+        e('h2',null,'⚔️ ',p.name),
+        e('div',{className:'card'},
+          e('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}},
+            e('span',{style:{fontSize:13}},p.char.name),
+            e('span',{style:{fontSize:13}},'Acusações: ',e('span',{style:{color:p.acc>=5?'#ff9999':'#e8d5b0'}},`${p.acc}/${accNeeded(p)}`))
+          ),
+          e('div',{style:{fontSize:11,color:'#c9a227',borderTop:'1px solid #3a1a10',paddingTop:6}},'⭐ ',p.char.ability)
+        ),
+        e('div',{className:'card'},
+          e('div',{className:'muted',style:{fontSize:11,marginBottom:6}},'JULGAMENTOS'),
+          e('div',{style:{display:'flex',gap:6,flexWrap:'wrap'}},
+            p.judgments.map((j,i)=>e('div',{key:i,style:{padding:'4px 8px',borderRadius:4,fontSize:11,
+              background:j.rev?(j.jt==='w'?'#4a0505':j.jt==='v'?'#05082a':'#082008'):'#2d1810',
+              border:'1px solid '+(j.rev?(j.jt==='w'?'#7a1515':j.jt==='v'?'#152050':'#1a4a1a'):'#4a2a14'),
+              color:j.rev?'#e8d5b0':'#4a3a20'}},j.rev?j.label:'???'))
+          )
+        ),
+        p.blue.length>0&&e('div',{className:'card'},
+          e('div',{className:'muted',style:{fontSize:11,marginBottom:4}},'CARTAS AZUIS NA SUA FRENTE'),
+          p.blue.map((c,i)=>e('div',{key:i,className:'c-blue',style:{marginTop:3}},e('span',{style:{fontWeight:'bold',fontSize:13}},c.name)))
+        ),
+        e('div',{className:'card'},
+          e('div',{className:'muted',style:{fontSize:11,marginBottom:4}},`MÃO (${p.hand.length})`),
+          p.hand.length===0&&e('div',{className:'muted'},'Mão vazia'),
+          e('div',{style:{background:'#1a1500',border:'1px solid #4a3800',borderRadius:6,padding:'8px 10px',marginBottom:6,fontSize:12,color:'#c0a040',lineHeight:1.7}},
+            '👆 Toque em uma carta para jogá-la em alguém.',e('br'),
+            e('span',{style:{color:'#7a6020'}},'Vermelho = acusa  •  Verde = efeito  •  Azul = fica na frente do alvo')
+          ),
+          p.hand.map((c,i)=>e('div',{key:i,className:cc(c.col),style:{cursor:'pointer',marginTop:3},onClick:()=>{setPlayingCard({card:c,hi:i});setActStep('selectTgt');}},
+            e('span',{style:{fontWeight:'bold',fontSize:13}},c.name),' ',
+            e('span',{className:'muted',style:{fontSize:11}},`(${c.col==='red'?'vermelha':c.col==='green'?'verde':c.col==='blue'?'azul':'preta'})`),
+            e('div',{className:'muted',style:{fontSize:11,marginTop:2}},c.effect)
+          ))
+        ),
+        e('div',{className:'row'},
+          e('button',{className:'btn btn-gold',onClick:()=>{
+            const d2=drawN(2);
+            const blacks=d2.filter(c=>c.col==='black'),nonB=d2.filter(c=>c.col!=='black');
+            const up=players.map((p2,i)=>i===curIdx?{...p2,hand:[...p2.hand,...nonB]}:p2);
+            setPlayers(up);setDrawn(d2);
+            if(blacks.length>0){setPendBlack(blacks[0]);setTurnStep('blackCard');}
+            else setTurnStep('drew');
+          }},'Comprar 2 Cartas')
+        ),
+        e('button',{className:'btn btn-dark',onClick:()=>endTurn(players)},'Finalizar Turno →'),
+        log.length>0&&e('div',{className:'card',style:{marginTop:8}},log.slice(0,5).map((l,i)=>e('div',{key:i,className:'log-item'},l)))
+      ));
+
+      if(actStep==='selectTgt'){
+        const card=playingCard?.card;
+        const others=players.map((p2,i)=>({...p2,ri:i})).filter(p2=>!p2.isDead&&p2.ri!==curIdx);
+        return e('div',{className:'game'},e('div',{className:'screen'},
+          e('h2',null,'Escolher Alvo'),
+          e('div',{className:cc(card?.col),style:{marginBottom:12}},
+            e('span',{style:{fontWeight:'bold',fontSize:15}},card?.name),e('div',{className:'muted',style:{fontSize:12,marginTop:2}},card?.effect)
+          ),
+          (card?.type==='rob'||card?.type==='sca')&&e('p',{className:'muted',style:{marginBottom:8}},'Escolha a ORIGEM (quem perde):'),
+          others.map(p2=>{
+            const hasPiety=p2.blue.some(c=>c.type==='pie');
+            const blocked=card?.col==='red'&&hasPiety;
+            return e('button',{key:p2.ri,className:'btn btn-sm btn-dark',style:{opacity:blocked?.4:1},disabled:blocked,onClick:()=>{
+              if(card?.type==='rob'||card?.type==='sca'){setTgtIdx(p2.ri);setActStep('selectTgt2');}
+              else if(card?.type==='ali'){setTgtIdx(p2.ri);setActStep('alibi');}
+              else if(card?.type==='cur'){setTgtIdx(p2.ri);setActStep('curse');}
+              else applyCard(card,playingCard.hi,p2.ri);
+            }},p2.name,blocked?' (Devoção)':'',p2.acc>0?` • ${p2.acc} acus.`:'');
+          }),
+          e('button',{className:'btn btn-dark',onClick:()=>setActStep('choose')},'← Voltar')
+        ));
+      }
+
+      if(actStep==='selectTgt2'){
+        const src=players[tgtIdx];
+        const dests=players.map((p2,i)=>({...p2,ri:i})).filter(p2=>!p2.isDead&&p2.ri!==curIdx&&p2.ri!==tgtIdx);
+        return e('div',{className:'game'},e('div',{className:'screen'},
+          e('h2',null,'Escolher Destino'),
+          e('p',{className:'muted',style:{marginBottom:8}},'Cartas de ',e('strong',null,src?.name),' vão para:'),
+          dests.map(p2=>e('button',{key:p2.ri,className:'btn btn-dark btn-sm',onClick:()=>applyCard(playingCard.card,playingCard.hi,tgtIdx,p2.ri)},p2.name)),
+          e('button',{className:'btn btn-dark',onClick:()=>setActStep('selectTgt')},'← Voltar')
+        ));
+      }
+
+      if(actStep==='alibi'){
+        const tgt=players[tgtIdx];
+        return e('div',{className:'game'},e('div',{className:'screen'},
+          e('h2',null,'Álibi'),
+          e('p',{className:'muted',style:{marginBottom:12}},'Remover quantas Acusações de ',e('strong',null,tgt?.name),'? (',tgt?.acc,' atualmente)'),
+          [1,2,3].map(n=>e('button',{key:n,className:`btn btn-sm ${n<=(tgt?.acc||0)?'btn-gold':'btn-dark'}`,disabled:n>(tgt?.acc||0),onClick:()=>applyCard(playingCard.card,playingCard.hi,tgtIdx,null,n)},`Remover ${n}`)),
+          e('button',{className:'btn btn-dark',onClick:()=>setActStep('selectTgt')},'← Voltar')
+        ));
+      }
+
+      if(actStep==='curse'){
+        const tgt=players[tgtIdx];
+        return e('div',{className:'game'},e('div',{className:'screen'},
+          e('h2',null,'Maldição'),
+          e('p',{className:'muted',style:{marginBottom:8}},'Qual carta azul descartar de ',e('strong',null,tgt?.name),'?'),
+          !tgt?.blue.length&&e('div',{className:'muted card'},'Nenhuma carta azul.'),
+          tgt?.blue.map((c,i)=>e('button',{key:i,className:'btn btn-dark c-blue btn-sm',onClick:()=>applyCard(playingCard.card,playingCard.hi,tgtIdx,null,i)},c.name)),
+          e('button',{className:'btn btn-dark',onClick:()=>setActStep('selectTgt')},'← Voltar')
+        ));
+      }
+    }
+  }
+
+  // NIGHT
+  if(phase==='night'){
+    const alive=players.filter(p=>!p.isDead);
+    const vig=players.find(p=>p.isVig&&!p.isDead);
+
+    if(nightStep==='intro') return e('div',{className:'game'},e('div',{className:'screen',style:{justifyContent:'center',textAlign:'center'}},
+      e('div',{style:{fontSize:56,marginBottom:8}},'🌙'),e('h1',null,'A NOITE CAI'),
+      e('p',{style:{color:'#8a6a40',lineHeight:1.7,margin:'16px 0'}},'Todos fechem os olhos.',e('br'),'As Bruxas escolherão sua vítima.',e('br'),'O Vigilante tentará salvar alguém.'),
+      e('div',{style:{background:'#0a0a1a',border:'1px solid #303080',borderRadius:8,padding:'12px 16px',margin:'8px 0',maxWidth:320,textAlign:'left'}},
+        e('div',{style:{color:'#8080ff',fontSize:13,fontWeight:'bold',marginBottom:4}},'⏱️ Dica prática:'),
+        e('div',{style:{color:'#9090cc',fontSize:13,lineHeight:1.6}},
+          '1. Ponham um alarme de 1 minuto.',e('br'),
+          '2. Todos fecham os olhos e deixam o celular no centro.',e('br'),
+          '3. As Bruxas pegam o dispositivo juntas e votam.',e('br'),
+          '4. Depois o Vigilante pega sozinho e escolhe quem salvar.'
+        )
+      ),
+      e('button',{className:'btn btn-red',style:{width:240,marginTop:8},onClick:()=>setNightStep('witch')},'Todos fecharam ✓')
+    ));
+
+    if(nightStep==='witch') return e('div',{className:'game'},e('div',{className:'cover'},
+      e('div',{style:{fontSize:36}},'🧙'),
+      e('div',{style:{color:'#c9a227',fontSize:17}},'Bruxas: abram os olhos'),
+      e('p',{className:'muted'},'Escolham quem matar:'),
+      e('div',{style:{width:'100%',maxWidth:340}},
+        alive.map(p=>{const ri=players.indexOf(p);const asy=p.blue.some(c=>c.type==='asy');
+          return e('button',{key:ri,className:`btn btn-sm ${nightVote===ri?'btn-red':'btn-dark'}`,style:{opacity:asy?.4:1},onClick:()=>{if(!asy)setNightVote(ri);}},p.name,asy?' (Asilo)':'');})
+      ),
+      nightVote!==null&&e('button',{className:'btn btn-red',style:{width:240},onClick:()=>setNightStep(vig?'vig':'confession')},`Confirmar: matar ${players[nightVote]?.name} ✓`)
+    ));
+
+    if(nightStep==='vig') return e('div',{className:'game'},e('div',{className:'cover'},
+      e('div',{style:{fontSize:36}},'🛡️'),
+      e('div',{style:{color:'#c9a227',fontSize:17}},'Vigilante: abra os olhos'),
+      e('div',{style:{background:'#0a0a1a',border:'1px solid #303080',borderRadius:8,padding:'10px 14px',maxWidth:300,textAlign:'left',margin:'4px 0 8px'}},
+        e('div',{style:{color:'#8080ff',fontSize:12,fontWeight:'bold',marginBottom:3}},'⏱️ Dica prática:'),
+        e('div',{style:{color:'#9090cc',fontSize:12,lineHeight:1.6}},'Somente o Vigilante pega o dispositivo agora.',e('br'),'Os outros mantêm os olhos fechados.')
+      ),
+      e('p',{className:'muted'},'Escolha quem salvar (não você mesmo):'),
+      e('div',{style:{width:'100%',maxWidth:340}},
+        alive.filter(p=>!p.isVig).map(p=>{const ri=players.indexOf(p);
+          return e('button',{key:ri,className:`btn btn-sm ${vigSave===ri?'btn-gold':'btn-dark'}`,onClick:()=>setVigSave(ri)},p.name);})
+      ),
+      vigSave!==null&&e('button',{className:'btn btn-gold',style:{width:240},onClick:()=>setNightStep('confession')},`Salvar ${players[vigSave]?.name} ✓`)
+    ));
+
+    if(nightStep==='confession') return e('div',{className:'game'},e('div',{className:'screen'},
+      e('div',{style:{textAlign:'center'}},e('div',{style:{fontSize:40}},'⏳'),e('h1',null,'CONFISSÃO')),
+      e('div',{className:'card',style:{margin:'12px 0'}},'Antes de revelar quem morreu, qualquer jogador pode ',e('strong',null,'confessar'),': revelar 1 Julgamento e ser imune a esta morte. Decidam antes do tempo acabar (30 seg)!'),
+      e('p',{className:'muted',style:{marginBottom:8}},'Quem está confessando?'),
+      alive.map(p=>{const ri=players.indexOf(p);const isc=confessing.includes(ri);
+        return e('button',{key:ri,className:`btn btn-sm ${isc?'btn-gold':'btn-dark'}`,onClick:()=>setConfessing(prev=>prev.includes(ri)?prev.filter(i=>i!==ri):[...prev,ri])},isc?'✓ ':'',p.name);}),
+      e('button',{className:'btn btn-red',style:{marginTop:12},onClick:resolveNight},'Revelar Resultado ☽')
+    ));
+
+    if(nightStep==='result'){
+      const r=nightRes;
+      return e('div',{className:'game'},e('div',{className:'screen',style:{textAlign:'center'}},
+        e('div',{style:{fontSize:56,marginBottom:8}},r?.killed?'💀':'🛡️'),
+        e('h1',null,r?.killed?'MORTE!':'SOBREVIVEU!'),
+        r?.killed&&e('div',{className:'c-red',style:{marginTop:12,marginBottom:8}},e('strong',null,r.killed),' foi morto(a) pelas Bruxas.'),
+        r?.survived&&e('div',{className:'c-blue',style:{marginTop:12,marginBottom:8}},e('strong',null,r.survived),' sobreviveu! ',e('div',{className:'muted',style:{fontSize:12}},r.reason)),
+        e('div',{className:'card muted',style:{fontSize:12,textAlign:'left',marginTop:8}},'Após a Noite: embaralhe o descarte, forme o baralho e coloque a Noite na parte de baixo.'),
+        e('button',{className:'btn btn-gold',style:{marginTop:16},onClick:()=>{
+          const nd=shuf(discRef.current.filter(c=>c.type!=='ngt'));nd.push(NIGHT_CARD);
+          deckRef.current=nd;discRef.current=[];setDeck([...nd]);setDiscard([]);
+          const nx=nextAlive((curIdx+1)%players.length);
+          setCurIdx(nx);setNightVote(null);setVigSave(null);setConfessing([]);setNightRes(null);
+          setTurnStep('cover');setPhase('turns');
+        }},'Continuar Partida →')
+      ));
+    }
+  }
+
+  return e('div',{className:'game'},e('div',{className:'cover'},e('p',{className:'muted'},'Carregando...')));
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Game));
+</script>
+</body>
+</html>
